@@ -1,0 +1,13 @@
+﻿<?xml version="1.0"?>
+<package  xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>    
+    <id>htmlterm</id>
+    <version>0.0.1</version>
+    <title>HTML Terminal</title>
+    <authors>Wolfgang Puchinger</authors>
+    <projectUrl>https://github.com/Zergie/HtmlTerminal</projectUrl>
+    <description>Terminal like control for terminal like apps .. that like to format text, use tables, svg or images.</description>
+  </metadata>
+  <files>
+  </files>
+</package>
