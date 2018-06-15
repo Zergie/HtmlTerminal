@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Net;
 using System.Text;
 using System.Windows.Forms;
 
@@ -9,7 +10,6 @@ namespace HtmlTerminal
     public partial class Terminal : UserControl
     {
         Dictionary<string, Dictionary<string, string>> style = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-        Queue<string> writeBuffer = new Queue<string>();
 
         public Terminal()
         {
@@ -37,11 +37,10 @@ namespace HtmlTerminal
             };
 
             InitializeComponent();
-
             Webview.DocumentText =
 @"<html/>
 <head><meta http-equiv=""X-UA-Compatible"" content=""IE=edge""/></head>
-<style>"
+<style id='style'>"
 + GenerateCss() +
 @"</style>
 <body>
@@ -86,29 +85,74 @@ namespace HtmlTerminal
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == Keys.Return)
+            switch (keyData)
             {
-                string message = Document.GetElementById("cursor").GetAttribute("value");
+                case Keys.Return:
+                    try
+                    {
+                        string text = Document.GetElementById("cursor").GetAttribute("value");
 
-                Write($"{Prompt}{message}");
-                ReadLine?.Invoke(this, message);
+                        Write($"{Prompt}{text}");
 
-                var textbox = Document.GetElementById("cursor");
-                textbox.SetAttribute("value", string.Empty);
-                textbox.ScrollIntoView(true);
+                        var args = CommandCollection.SplitArguments(text);
 
-                return true;
-            }
-            else
-            {
-                var textbox = Document.GetElementById("cursor");
-                if (textbox != null)
-                {
-                    textbox.Focus();
-                    textbox.ScrollIntoView(true);
-                }
+                        if (args.Length > 0)
+                        {
+                            if (!Commands.Contains(args[0]))
+                                throw new CommandNotFoundException(args);
 
-                return base.ProcessCmdKey(ref msg, keyData);
+                            Commands[args[0]](args);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (CommandException == null)
+                            throw;
+                        CommandException(this, e);
+                    }
+                    finally
+                    {
+                        var textbox = Document.GetElementById("cursor");
+                        textbox.SetAttribute("value", string.Empty);
+                        ScrollToCursor();
+                    }
+                    return true;
+
+                case Keys.Tab:
+                    {
+                        string text = Document.GetElementById("cursor").GetAttribute("value");
+
+                        if (!text.Contains(" "))
+                        {
+                            //autocomplete command
+                            var suggestions = Commands.CompleteCommand(text);
+
+                            if (suggestions.Count == 1)
+                            {
+                                Document.GetElementById("cursor").SetAttribute("value", suggestions[0]);
+                            }
+                            else
+                            {
+                                Write($"{Prompt}{text}");
+                                Write(string.Join("<br/>", suggestions));
+                            }
+
+                            ScrollToCursor();
+                        }
+                        else
+                        {
+                            //autocomplete argument
+                            //todo
+                        }
+
+                        return true;
+                    }
+
+                default:
+                    {
+                        ScrollToCursor();
+                        return base.ProcessCmdKey(ref msg, keyData);
+                    }
             }
         }
 
@@ -120,7 +164,7 @@ namespace HtmlTerminal
             if (textbox != null)
             {
                 textbox.Focus();
-                textbox.ScrollIntoView(true);
+                textbox.ScrollIntoView(false);
             }
         }
 
@@ -136,7 +180,11 @@ namespace HtmlTerminal
         {
             get
             {
-                return $"<html>{Document.GetElementsByTagName("html")[0].InnerHtml}</html>";
+                var html = Document.GetElementsByTagName("html");
+                if (html.Count > 0)
+                    return $"<html>{html[0].InnerHtml}</html>";
+
+                return string.Empty;
             }
         }
 
@@ -171,6 +219,24 @@ namespace HtmlTerminal
             {
                 style["#prompt_cursor"]["display"] = value ? "flex" : "none";
                 UpdateCss();
+
+                if (value)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke((MethodInvoker)delegate { ScrollToCursor(); });
+                    else
+                        ScrollToCursor();
+                }
+            }
+        }
+
+        private void ScrollToCursor()
+        {
+            var textbox = Document.GetElementById("cursor");
+            if (textbox != null)
+            {
+                textbox.ScrollIntoView(false);
+                textbox.Focus();
             }
         }
 
@@ -233,18 +299,60 @@ namespace HtmlTerminal
             }
         }
 
-        public void Write(string message)
+
+        public CommandCollection Commands { get; } = new CommandCollection(StringComparer.OrdinalIgnoreCase);
+
+
+        public void WriteText(string text)
+        {
+            Write($"<pre>{WebUtility.HtmlEncode(text)}</pre>");
+        }
+
+        public void WriteText(string text, Color color)
+        {
+            Write($"<pre style='color:{ColorTranslator.ToHtml(color)}'>{WebUtility.HtmlEncode(text)}</pre>");
+        }
+
+        public void WriteText(string text, Color color, FontStyle style = FontStyle.Regular)
+        {
+            var css = new StringBuilder();
+            css.Append($"color:{ColorTranslator.ToHtml(color)};");
+
+            if (style.HasFlag(FontStyle.Bold))
+                css.Append("font-weight: bold;");
+
+            if (style.HasFlag(FontStyle.Italic))
+                css.Append("font-style: italic;");
+
+            if (style.HasFlag(FontStyle.Underline) && style.HasFlag(FontStyle.Strikeout))
+                css.Append("text-decoration: underline line-through;");
+            else if (style.HasFlag(FontStyle.Underline))
+                css.Append("text-decoration: underline;");
+            else if (style.HasFlag(FontStyle.Strikeout))
+                css.Append("text-decoration: line-through;");
+
+
+            Write($"<pre style='{css.ToString()}'>{WebUtility.HtmlEncode(text)}</pre>");
+        }
+
+        public void Write(string html)
         {
             if (InvokeRequired)
             {
-                BeginInvoke((MethodInvoker)delegate { Write(message); });
+                BeginInvoke((MethodInvoker)delegate { Write(html); });
             }
             else
             {
                 HtmlElement element = Document.CreateElement("div");
-                element.InnerHtml = message;
+                element.InnerHtml = html;
 
-                Document.GetElementById("end").AppendChild(element);
+                var endElement = Document.GetElementById("end");
+
+                if (endElement != null)
+                {
+                    endElement.AppendChild(element);
+                    endElement.ScrollIntoView(false);
+                }
             }
         }
 
@@ -253,12 +361,18 @@ namespace HtmlTerminal
             if (InvokeRequired)
                 BeginInvoke((MethodInvoker)delegate { UpdateCss(); });
             else
-                Document.GetElementsByTagName("style")[0].InnerHtml = GenerateCss();
+            {
+                var element = Document.GetElementById("style");
+
+                if (element != null)
+                    element.InnerHtml = GenerateCss();
+            }
         }
 
 
-        public delegate void ReadLineEventHandler(object sender, string message);
-        public event ReadLineEventHandler ReadLine;
+
+        public delegate void CommandExceptionEventHandler(object sender, Exception e);
+        public event CommandExceptionEventHandler CommandException;
 
         public delegate void SimpleEventHandler(object sender);
         public event SimpleEventHandler Loaded;

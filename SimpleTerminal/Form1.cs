@@ -1,7 +1,8 @@
-﻿using System;
+﻿using HtmlTerminal;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
-using System.Net;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -14,97 +15,102 @@ namespace SimpleTerminal
         public Form1()
         {
             InitializeComponent();
-        }
 
-        private void Process_OutputDataReceived(object sender, DataReceivedEventArgs e)
-        {
-            if (!string.IsNullOrEmpty(e.Data))
+            using (Process p = new Process())
             {
-                terminal1.Write($"<pre>{e.Data}</pre>");
-            }
-        }
+                p.StartInfo = new ProcessStartInfo()
+                {
+                    FileName = "cmd",
+                    Arguments = $"/c help",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    StandardOutputEncoding = Encoding.GetEncoding(850),
+                };
 
-        private void Process_ErrorDataReceived(object sender, DataReceivedEventArgs e)
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-            {
-                terminal1.Write($"<pre style='color:red'>{e.Data}</pre>");
-            }
-        }
-
-        private void terminal1_Loaded(object sender)
-        {
-            terminal1.Prompt = $"{Directory.GetCurrentDirectory()}>";
-        }
-
-        private void terminal1_ReadLine(object sender, string message)
-        {
-            try
-            {
-                if (message.StartsWith("cd", StringComparison.OrdinalIgnoreCase))
+                p.OutputDataReceived += (sender, e) =>
                 {
-                    Command_cd(message);
-                }
-                else if (string.Compare(message, ".DocumentText", true) == 0)
-                {
-                    terminal1.Write($"<div style='background-color: grey;'>{WebUtility.HtmlEncode(terminal1.DocumentText)}</div>");
-                }
-                else if (string.Compare(message, "dir", true) == 0)
-                {
-                    Command_dir();
-                }
-                else
-                {
-                    process = new Process()
+                    if (!string.IsNullOrEmpty(e.Data))
                     {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "cmd",
-                            Arguments = $"/c {message}",
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            RedirectStandardError = true,
-                            RedirectStandardOutput = true,
-                            StandardOutputEncoding = Encoding.GetEncoding(850),
-                            StandardErrorEncoding = Encoding.GetEncoding(850),
-                        },
-                        EnableRaisingEvents = true,
-                    };
+                        int i = e.Data.IndexOf(' ');
 
-                    process.ErrorDataReceived += Process_ErrorDataReceived;
-                    process.OutputDataReceived += Process_OutputDataReceived;
-                    process.Exited += Process_Exited;
-                    process.Start();
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
+                        if (i > 0 && e.Data.Length != i && e.Data[i + 1] == ' ')
+                            terminal1.Commands.Add(e.Data.Substring(0, i), Command_Other);
+                    }
+                };
 
-                    terminal1.PromptVisible = false;
-                }
+                p.Exited += (sender, e) =>
+                {
+                    Process process = (Process)sender;
+                    process.Dispose();
+                };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.WaitForExit();
             }
-            catch (Exception e)
+
+            terminal1.Commands["cd"] = Command_cd;
+            terminal1.Commands["dir"] = Command_dir;
+            //terminal1.Commands.Add(".DocumentText", (args) => { terminal1.Write($"<div style='background-color: grey;'>{WebUtility.HtmlEncode(terminal1.DocumentText)}</div>"); });
+            terminal1.Commands["ws"] = Command_writeStyle;
+            terminal1.Commands["wc"] = Command_writeColor;
+        }
+
+        private void Command_writeStyle(string[] args)
+        {
+            Color color = Color.FromName(args[1]);
+            FontStyle style = (FontStyle)int.Parse(args[2]);
+
+            terminal1.WriteText(string.Join(" ", args.Skip(3)), color, style);
+        }
+
+        private void Command_writeColor(string[] args)
+        {
+            Color color = Color.FromName(args[1]);
+            terminal1.WriteText(string.Join(" ", args.Skip(2)), color);
+        }
+
+        private void Command_Other(string[] args)
+        {
+            process = new Process()
             {
-                terminal1.Write($"<b style='color=red'>{e.ToString()}</b>");
-            }
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd",
+                    Arguments = $"/c \"{string.Join("\"", args)}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    StandardOutputEncoding = Encoding.GetEncoding(850),
+                    StandardErrorEncoding = Encoding.GetEncoding(850),
+                },
+                EnableRaisingEvents = true,
+            };
+
+            process.ErrorDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    terminal1.WriteText(e.Data, Color.Red);
+            };
+            process.OutputDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    terminal1.WriteText(e.Data);
+            };
+            process.Exited += (s, e) =>
+            {
+                terminal1.PromptVisible = true;
+            };
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            terminal1.PromptVisible = false;
         }
 
-        private void Process_Exited(object sender, EventArgs e)
-        {
-            process.ErrorDataReceived -= Process_ErrorDataReceived;
-            process.OutputDataReceived -= Process_OutputDataReceived;
-            process.Exited -= Process_Exited;
-            process.Dispose();
-
-            terminal1.PromptVisible = true;
-        }
-
-        private void Command_cd(string message)
-        {
-            string path = Path.GetFullPath(message.Substring(3));
-            Directory.SetCurrentDirectory(path);
-            terminal1.Prompt = $"{Directory.GetCurrentDirectory()}>";
-        }
-
-        private void Command_dir()
+        private void Command_dir(string[] args)
         {
             var sb = new StringBuilder();
 
@@ -144,6 +150,28 @@ namespace SimpleTerminal
             terminal1.Write(sb.ToString());
         }
 
+        private void Command_cd(string[] args)
+        {
+            string path = Path.GetFullPath(args[0]);
+            Directory.SetCurrentDirectory(path);
+            terminal1.Prompt = $"{Directory.GetCurrentDirectory()}>";
+        }
 
+
+
+
+
+        private void terminal1_Loaded(object sender)
+        {
+            terminal1.Prompt = $"{Directory.GetCurrentDirectory()}>";
+        }
+
+        private void terminal1_CommandException(object sender, System.Exception e)
+        {
+            if (e is CommandNotFoundException)
+                terminal1.WriteText(e.Message, Color.Red, FontStyle.Bold);
+            else
+                terminal1.WriteText(e.ToString(), Color.Red, FontStyle.Bold);
+        }
     }
 }

@@ -34,6 +34,7 @@
             // Webview
             // 
             this.Webview.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.Webview.IsWebBrowserContextMenuEnabled = false;
             this.Webview.Location = new System.Drawing.Point(0, 0);
             this.Webview.MinimumSize = new System.Drawing.Size(20, 20);
             this.Webview.Name = "Webview";

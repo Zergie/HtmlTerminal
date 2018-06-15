@@ -41,6 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommandCollection.cs" />
+    <Compile Include="CommandNotFoundException.cs" />
     <Compile Include="Terminal.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -48,6 +50,7 @@
       <DependentUpon>Terminal.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
     <Service Include="{94E38DFF-614B-4cbd-B67C-F211BB35CE8B}" />
   </ItemGroup>
   <ItemGroup>

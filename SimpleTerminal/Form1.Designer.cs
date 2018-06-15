@@ -53,9 +53,10 @@
             this.terminal1.Location = new System.Drawing.Point(3, 46);
             this.terminal1.Name = "terminal1";
             this.terminal1.Prompt = "$";
+            this.terminal1.PromptVisible = true;
             this.terminal1.Size = new System.Drawing.Size(794, 401);
             this.terminal1.TabIndex = 1;
-            this.terminal1.ReadLine += new HtmlTerminal.Terminal.ReadLineEventHandler(this.terminal1_ReadLine);
+            this.terminal1.CommandException += new HtmlTerminal.Terminal.CommandExceptionEventHandler(this.terminal1_CommandException);
             this.terminal1.Loaded += new HtmlTerminal.Terminal.SimpleEventHandler(this.terminal1_Loaded);
             // 
             // Form1
