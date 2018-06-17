@@ -41,8 +41,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Command.cs" />
     <Compile Include="CommandCollection.cs" />
     <Compile Include="CommandNotFoundException.cs" />
+    <Compile Include="ICommand.cs" />
     <Compile Include="Terminal.cs">
       <SubType>UserControl</SubType>
     </Compile>

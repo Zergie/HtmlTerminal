@@ -1,12 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Windows.Forms;
 
 namespace HtmlTerminal
 {
+    public enum EnumListDisplay
+    {
+        SimpleList,
+        Table2Columns = 0x12,
+        Table3Columns = 0x13,
+        Table4Columns = 0x14,
+        Table5Columns = 0x15,
+    }
+
     public partial class Terminal : UserControl
     {
         Dictionary<string, Dictionary<string, string>> style = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
@@ -25,6 +35,7 @@ namespace HtmlTerminal
                 { "border", "none" },
                 { "border-bottom", "2px solid red" },
                 { "width", "100%" },
+                { "caret-color",  "red" },
             };
 
             style["#prompt_cursor"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
@@ -34,19 +45,21 @@ namespace HtmlTerminal
             style["pre"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "margin-top", "5px" },
                 { "margin-bottom", "5px" },
+                { "white-space", "pre-wrap"},
             };
+
 
             InitializeComponent();
             Webview.DocumentText =
-@"<html/>
+    @"<html/>
 <head><meta http-equiv=""X-UA-Compatible"" content=""IE=edge""/></head>
 <style id='style'>"
-+ GenerateCss() +
+    + GenerateCss() +
 @"</style>
 <body>
-<div id='content'>
-    <div id='end'/>
-</div>
+    <div id='content'>
+        <div id='end'/>
+    </div>
     <div id='prompt_cursor'>
         <div id='prompt' style='float: left;'>$</div>
         <input id='cursor' />
@@ -54,6 +67,7 @@ namespace HtmlTerminal
 <body/>
 <html/>";
         }
+
 
         private string GenerateCss()
         {
@@ -78,6 +92,31 @@ namespace HtmlTerminal
             return sb.ToString();
         }
 
+        private void UpdateCss()
+        {
+            if (InvokeRequired)
+                BeginInvoke((MethodInvoker)delegate { UpdateCss(); });
+            else
+            {
+                var element = Document.GetElementById("style");
+
+                if (element != null)
+                    element.InnerHtml = GenerateCss();
+            }
+        }
+
+        private void ScrollToCursor()
+        {
+            var textbox = Document.GetElementById("cursor");
+            if (textbox != null)
+            {
+                textbox.ScrollIntoView(false);
+                textbox.Focus();
+            }
+        }
+
+
+
         private void Webview_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
         {
             Loaded?.Invoke(this);
@@ -101,14 +140,15 @@ namespace HtmlTerminal
                             if (!Commands.Contains(args[0]))
                                 throw new CommandNotFoundException(args);
 
-                            Commands[args[0]](args);
+                            Commands[args[0]].Run(this, args);
                         }
                     }
                     catch (Exception e)
                     {
                         if (CommandException == null)
-                            throw;
-                        CommandException(this, e);
+                            WriteText(e.ToString(), Color.Red, FontStyle.Bold);
+                        else
+                            CommandException(this, e);
                     }
                     finally
                     {
@@ -127,24 +167,45 @@ namespace HtmlTerminal
                             //autocomplete command
                             var suggestions = Commands.CompleteCommand(text);
 
-                            if (suggestions.Count == 1)
+                            if (suggestions.Count() == 1)
                             {
-                                Document.GetElementById("cursor").SetAttribute("value", suggestions[0]);
+                                Document.GetElementById("cursor").SetAttribute("value", suggestions.First());
                             }
                             else
                             {
                                 Write($"{Prompt}{text}");
-                                Write(string.Join("<br/>", suggestions));
+                                Write(suggestions);
                             }
-
-                            ScrollToCursor();
                         }
                         else
                         {
                             //autocomplete argument
-                            //todo
+                            var args = CommandCollection.SplitArguments(text);
+
+                            if (args.Length > 0)
+                            {
+                                int argi = args.Length - 1;
+
+                                if (text.EndsWith(" ")) argi++;
+
+                                if (Commands.Contains(args[0]))
+                                {
+                                    var suggestions = Commands[args[0]].GetSuggestions(argi, args);
+                                    if (suggestions.Count() == 1)
+                                    {
+                                        text = text.Substring(0, text.Length - args[args.Length - 1].Length) + suggestions.First();
+                                        Document.GetElementById("cursor").SetAttribute("value", text);
+                                    }
+                                    else
+                                    {
+                                        Write($"{Prompt}{text}?");
+                                        Write(suggestions);
+                                    }
+                                }
+                            }
                         }
 
+                        ScrollToCursor();
                         return true;
                     }
 
@@ -167,6 +228,10 @@ namespace HtmlTerminal
                 textbox.ScrollIntoView(false);
             }
         }
+
+
+
+
 
         public HtmlDocument Document
         {
@@ -230,16 +295,6 @@ namespace HtmlTerminal
             }
         }
 
-        private void ScrollToCursor()
-        {
-            var textbox = Document.GetElementById("cursor");
-            if (textbox != null)
-            {
-                textbox.ScrollIntoView(false);
-                textbox.Focus();
-            }
-        }
-
         public override Font Font
         {
             get
@@ -295,13 +350,26 @@ namespace HtmlTerminal
             set
             {
                 style["*"]["color"] = ColorTranslator.ToHtml(value);
+                style["input"]["caret-color"] = ColorTranslator.ToHtml(value);
                 UpdateCss();
             }
         }
 
+        public EnumListDisplay SuggestionDisplayFormat { get; set; } = EnumListDisplay.SimpleList;
+
+        public override ContextMenuStrip ContextMenuStrip
+        {
+            get => base.ContextMenuStrip;
+            set
+            {
+                Webview.ContextMenuStrip = value;
+                base.ContextMenuStrip = value;
+            }
+        }
+
+
 
         public CommandCollection Commands { get; } = new CommandCollection(StringComparer.OrdinalIgnoreCase);
-
 
         public void WriteText(string text)
         {
@@ -356,16 +424,47 @@ namespace HtmlTerminal
             }
         }
 
-        private void UpdateCss()
+        public void Write(IEnumerable<object> list)
         {
-            if (InvokeRequired)
-                BeginInvoke((MethodInvoker)delegate { UpdateCss(); });
+            if (list == null)
+            {
+                WriteText("no suggestions found", Color.Red, FontStyle.Bold);
+            }
             else
             {
-                var element = Document.GetElementById("style");
+                switch (SuggestionDisplayFormat)
+                {
+                    case EnumListDisplay.SimpleList:
+                        Write(string.Join("<br/>", list));
+                        break;
 
-                if (element != null)
-                    element.InnerHtml = GenerateCss();
+                    case EnumListDisplay.Table5Columns:
+                    case EnumListDisplay.Table4Columns:
+                    case EnumListDisplay.Table3Columns:
+                    case EnumListDisplay.Table2Columns:
+                        int div = ((int)SuggestionDisplayFormat) & 0x0f;
+
+                        var sb = new StringBuilder();
+                        sb.Append("<table style='width:100%;table-layout: fixed;'>");
+                        sb.Append($"<tr>");
+
+                        int i = 0;
+                        foreach (var item in list)
+                        {
+                            sb.Append($"<td>{item}</td>");
+
+                            if ((i % div) == (div - 1))
+                                sb.Append($"</tr><tr>");
+
+                            i++;
+                        }
+
+                        sb.Append("</tr>");
+                        sb.Append("</table>");
+                        Write(sb.ToString());
+                        break;
+                }
+
             }
         }
 

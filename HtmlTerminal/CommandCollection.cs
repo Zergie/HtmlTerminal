@@ -6,19 +6,18 @@ namespace HtmlTerminal
 {
     public class CommandCollection
     {
-        public delegate void CommandHandler(string[] args);
-        Dictionary<string, CommandHandler> commands;
+        Dictionary<string, ICommand> commands;
         StringComparer Comparer;
 
         internal CommandCollection(StringComparer comparer)
         {
             Comparer = comparer;
-            commands = new Dictionary<string, CommandHandler>(comparer);
+            commands = new Dictionary<string, ICommand>(comparer);
         }
 
-        public void Add(string command, CommandHandler handler)
+        public void Add(string command, ICommand cmd)
         {
-            commands.Add(command, handler);
+            commands.Add(command, cmd);
         }
 
         public bool Contains(string command)
@@ -26,7 +25,7 @@ namespace HtmlTerminal
             return commands.ContainsKey(command);
         }
 
-        public CommandHandler this[string command]
+        public ICommand this[string command]
         {
             get
             {
@@ -39,7 +38,7 @@ namespace HtmlTerminal
         }
 
 
-        internal List<string> CompleteCommand(string command)
+        internal IEnumerable<string> CompleteCommand(string command)
         {
             var Result = new List<string>();
 
