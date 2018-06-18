@@ -54,6 +54,7 @@ namespace SimpleTerminal
             terminal1.Commands["dir"] = new CommandListDir();
             terminal1.Commands["ws"] = new Command(Command_writeStyle);
             terminal1.Commands["wc"] = new Command(Command_writeColor);
+            terminal1.Commands["ping"] = new CommandPing();
         }
 
         private void Command_writeStyle(Terminal sender, string[] args)

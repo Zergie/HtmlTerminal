@@ -36,6 +36,10 @@ namespace HtmlTerminal
                 { "caret-color",  "red" },
             };
 
+            Style["#end"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                { "width", "100%" },
+            };
+
             Style["#prompt_cursor"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "display", "flex" },
             };
@@ -231,12 +235,9 @@ namespace HtmlTerminal
 
 
 
-        public HtmlDocument Document
+        private HtmlDocument Document
         {
-            get
-            {
-                return Webview.Document;
-            }
+            get => Webview.Document;
         }
 
         public string DocumentText
@@ -414,13 +415,7 @@ namespace HtmlTerminal
                 HtmlElement element = Document.CreateElement("div");
                 element.InnerHtml = html;
 
-                var endElement = Document.GetElementById("end");
-
-                if (endElement != null)
-                {
-                    endElement.AppendChild(element);
-                    endElement.ScrollIntoView(false);
-                }
+                Write(element);
             }
         }
 
@@ -467,6 +462,35 @@ namespace HtmlTerminal
 
             }
         }
+
+        public void Write(HtmlElement element)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((MethodInvoker)delegate { Write(element); });
+            }
+            else
+            {
+                var endElement = Document.GetElementById("end");
+
+                if (endElement != null)
+                {
+                    endElement.AppendChild(element);
+                    endElement.ScrollIntoView(false);
+                }
+            }
+        }
+
+
+
+
+
+        public HtmlElement CreateElement(string elementTag)
+        {
+            return Document.CreateElement(elementTag);
+        }
+
+
 
 
 
