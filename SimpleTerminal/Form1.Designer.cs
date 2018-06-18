@@ -75,7 +75,7 @@
             // copyHtmlToolStripMenuItem
             // 
             this.copyHtmlToolStripMenuItem.Name = "copyHtmlToolStripMenuItem";
-            this.copyHtmlToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.copyHtmlToolStripMenuItem.Size = new System.Drawing.Size(128, 22);
             this.copyHtmlToolStripMenuItem.Text = "copy html";
             this.copyHtmlToolStripMenuItem.Click += new System.EventHandler(this.copyHtmlToolStripMenuItem_Click);
             // 
@@ -86,7 +86,7 @@
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.tableLayoutPanel1);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "SimpleTerminal";
             this.tableLayoutPanel1.ResumeLayout(false);
             this.contextMenuStrip1.ResumeLayout(false);
             this.ResumeLayout(false);

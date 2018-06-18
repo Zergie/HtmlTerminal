@@ -6,13 +6,16 @@ namespace SimpleTerminal
 {
     class CommandChangeDir : ICommand
     {
-        public IEnumerable<string> GetSuggestions(int argi, string[] args)
+        public IEnumerable<CommandSuggestion> GetSuggestions(int argi, string[] args)
         {
             if (argi != 1)
                 yield break;
 
-            foreach (var item in Command.SuggestDirectories(argi, args))
-                yield return CommandListDir.RenderDirectory(item);
+            foreach (var item in CommandSuggestion.SuggestDirectories(argi, args))
+            {
+                item.HtmlText = CommandListDir.RenderDirectory(item.Text);
+                yield return item;
+            }
         }
 
         public void Run(Terminal terminal, string[] args)

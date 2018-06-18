@@ -19,11 +19,9 @@ namespace HtmlTerminal
 
     public partial class Terminal : UserControl
     {
-        Dictionary<string, Dictionary<string, string>> style = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-
         public Terminal()
         {
-            style["*"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            Style["*"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "font-family", "Consolas" },
                 { "font-size", "15px" },
                 { "background-color", "#ffffff" },
@@ -31,18 +29,18 @@ namespace HtmlTerminal
                 { "line-height", "normal"},
             };
 
-            style["input"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            Style["input"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "border", "none" },
                 { "border-bottom", "2px solid red" },
                 { "width", "100%" },
                 { "caret-color",  "red" },
             };
 
-            style["#prompt_cursor"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            Style["#prompt_cursor"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "display", "flex" },
             };
 
-            style["pre"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+            Style["pre"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                 { "margin-top", "5px" },
                 { "margin-bottom", "5px" },
                 { "white-space", "pre-wrap"},
@@ -73,7 +71,7 @@ namespace HtmlTerminal
         {
             var sb = new StringBuilder();
 
-            foreach (var item in style)
+            foreach (var item in Style)
             {
                 sb.AppendLine(item.Key);
                 sb.AppendLine("{");
@@ -193,7 +191,7 @@ namespace HtmlTerminal
                                     var suggestions = Commands[args[0]].GetSuggestions(argi, args);
                                     if (suggestions.Count() == 1)
                                     {
-                                        text = text.Substring(0, text.Length - args[args.Length - 1].Length) + suggestions.First();
+                                        text = text.Substring(0, text.Length - args[args.Length - 1].Length) + suggestions.First().Text;
                                         Document.GetElementById("cursor").SetAttribute("value", text);
                                     }
                                     else
@@ -253,6 +251,8 @@ namespace HtmlTerminal
             }
         }
 
+        StyleCollection Style { get; } = new StyleCollection();
+
         public string Prompt
         {
             get
@@ -274,15 +274,15 @@ namespace HtmlTerminal
         {
             get
             {
-                if (!style.ContainsKey("#prompt_cursor"))
+                if (!Style.ContainsKey("#prompt_cursor"))
                     return false;
 
-                return style["#prompt_cursor"]["display"] == "flex";
+                return Style["#prompt_cursor"]["display"] == "flex";
             }
 
             set
             {
-                style["#prompt_cursor"]["display"] = value ? "flex" : "none";
+                Style["#prompt_cursor"]["display"] = value ? "flex" : "none";
                 UpdateCss();
 
                 if (value)
@@ -299,23 +299,23 @@ namespace HtmlTerminal
         {
             get
             {
-                if (!style.ContainsKey("*"))
+                if (!Style.ContainsKey("*"))
                     return base.Font;
 
-                var font_family = style["*"]["font-family"];
+                var font_family = Style["*"]["font-family"];
 
-                var s = style["*"]["font-size"];
+                var s = Style["*"]["font-size"];
                 var font_size = Convert.ToSingle(s.Substring(0, s.Length - 2));
 
                 return new Font(font_family, font_size);
             }
             set
             {
-                style["*"]["font-family"] = value.FontFamily.Name;
-                style["*"]["font-size"] = $"{value.Size}px";
+                Style["*"]["font-family"] = value.FontFamily.Name;
+                Style["*"]["font-size"] = $"{value.Size}px";
 
-                style["input"]["font-family"] = style["*"]["font-family"];
-                style["input"]["font-size"] = style["*"]["font-size"];
+                Style["input"]["font-family"] = Style["*"]["font-family"];
+                Style["input"]["font-size"] = Style["*"]["font-size"];
                 UpdateCss();
             }
         }
@@ -324,15 +324,15 @@ namespace HtmlTerminal
         {
             get
             {
-                if (!style.ContainsKey("*"))
+                if (!Style.ContainsKey("*"))
                     return base.BackColor;
 
-                var text = style["*"]["background-color"];
+                var text = Style["*"]["background-color"];
                 return ColorTranslator.FromHtml(text);
             }
             set
             {
-                style["*"]["background-color"] = ColorTranslator.ToHtml(value);
+                Style["*"]["background-color"] = ColorTranslator.ToHtml(value);
                 UpdateCss();
             }
         }
@@ -341,16 +341,16 @@ namespace HtmlTerminal
         {
             get
             {
-                if (!style.ContainsKey("*"))
+                if (!Style.ContainsKey("*"))
                     return base.BackColor;
 
-                var text = style["*"]["color"];
+                var text = Style["*"]["color"];
                 return ColorTranslator.FromHtml(text);
             }
             set
             {
-                style["*"]["color"] = ColorTranslator.ToHtml(value);
-                style["input"]["caret-color"] = ColorTranslator.ToHtml(value);
+                Style["*"]["color"] = ColorTranslator.ToHtml(value);
+                Style["input"]["caret-color"] = ColorTranslator.ToHtml(value);
                 UpdateCss();
             }
         }

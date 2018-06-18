@@ -7,12 +7,16 @@ namespace SimpleTerminal
 {
     class CommandListDir : ICommand
     {
-        public IEnumerable<string> GetSuggestions(int argi, string[] args)
+        public IEnumerable<CommandSuggestion> GetSuggestions(int argi, string[] args)
         {
             if (argi != 1)
-                return null;
+                yield break;
 
-            return Command.SuggestDirectories(argi, args);
+            foreach (var item in CommandSuggestion.SuggestDirectories(argi, args))
+            {
+                item.HtmlText = RenderDirectory(item.Text);
+                yield return item;
+            }
         }
 
         public void Run(Terminal terminal, string[] args)

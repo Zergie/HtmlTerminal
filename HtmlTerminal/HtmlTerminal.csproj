@@ -43,8 +43,10 @@
   <ItemGroup>
     <Compile Include="Command.cs" />
     <Compile Include="CommandCollection.cs" />
+    <Compile Include="CommandSuggestion.cs" />
     <Compile Include="CommandNotFoundException.cs" />
     <Compile Include="ICommand.cs" />
+    <Compile Include="StyleCollection.cs" />
     <Compile Include="Terminal.cs">
       <SubType>UserControl</SubType>
     </Compile>
