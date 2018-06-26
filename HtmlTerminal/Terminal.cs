@@ -171,7 +171,7 @@ namespace HtmlTerminal
 
                             if (suggestions.Count() == 1)
                             {
-                                Document.GetElementById("cursor").SetAttribute("value", suggestions.First());
+                                Document.GetElementById("cursor").SetAttribute("value", suggestions.First() + " ");
                             }
                             else
                             {
@@ -192,11 +192,17 @@ namespace HtmlTerminal
 
                                 if (Commands.Contains(args[0]))
                                 {
-                                    var suggestions = Commands[args[0]].GetSuggestions(argi, args);
+                                    var suggestions = from s in Commands[args[0]].GetSuggestions(argi, args)
+                                                      where s.Text.StartsWith(args[args.Length - 1], StringComparison.OrdinalIgnoreCase)
+                                                      select s;
                                     if (suggestions.Count() == 1)
                                     {
-                                        text = text.Substring(0, text.Length - args[args.Length - 1].Length) + suggestions.First().Text;
-                                        Document.GetElementById("cursor").SetAttribute("value", text);
+                                        if (argi == args.Length - 1)
+                                            text = text.Substring(0, text.Length - args[args.Length - 1].Length) + suggestions.First().Text;
+                                        else
+                                            text = text + suggestions.First().Text;
+
+                                        Document.GetElementById("cursor").SetAttribute("value", text + " ");
                                     }
                                     else
                                     {
